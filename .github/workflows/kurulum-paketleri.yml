@@ -1,0 +1,97 @@
+# ============================================================
+# KURULUM PAKETLERİ İŞ AKIŞI (GitHub Actions)
+#
+# Ne yapar? Proje GitHub'a yüklendikten sonra bu dosya sayesinde
+# GitHub'ın ÜCRETSİZ bulut bilgisayarları projeyi hem macOS hem
+# Windows üzerinde derler ve kurulum dosyalarını üretir:
+#   - macOS  → .dmg (Apple Silicon + Intel ayrı ayrı)
+#   - Windows → .msi ve .exe (NSIS kurulum sihirbazı)
+#
+# Nasıl tetiklenir?
+#   1. GitHub'da repo sayfası → Actions sekmesi → bu iş akışı →
+#      "Run workflow" düğmesi (elle tetikleme), VEYA
+#   2. "v0.1.0" gibi bir sürüm etiketi (tag) gönderince otomatik.
+#
+# Üretilen paketler repo'nun "Releases" bölümünde TASLAK (draft)
+# olarak birikir — kontrol edip "Publish" deyince herkes indirebilir.
+# ============================================================
+
+name: Kurulum Paketleri
+
+on:
+  # Elle tetikleme (Actions sekmesindeki düğme)
+  workflow_dispatch:
+  # v1.0.0 gibi sürüm etiketi gönderilince otomatik tetikleme
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  paket-uret:
+    # Bir platform başarısız olsa da diğerleri devam etsin
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Apple Silicon Mac'ler (M1/M2/M3/M4...)
+          - platform: macos-latest
+            args: "--target aarch64-apple-darwin"
+          # Intel işlemcili eski Mac'ler
+          - platform: macos-latest
+            args: "--target x86_64-apple-darwin"
+          # Windows 10/11 (64 bit)
+          - platform: windows-latest
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      # 1. Proje kodunu bulut bilgisayara indir
+      - name: Kodu indir
+        uses: actions/checkout@v4
+
+      # 2. Node.js kur (frontend derlemesi için)
+      - name: Node.js kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 3. Rust kur (backend derlemesi için).
+      #    macOS'ta iki hedef mimari birden kurulur (Apple Silicon + Intel)
+      - name: Rust kur
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      # 4. Rust derleme önbelleği — sonraki çalıştırmalar çok hızlanır
+      - name: Rust önbelleği
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # 5. Frontend bağımlılıklarını indir
+      - name: npm paketlerini indir
+        run: npm install
+
+      # 6. Tauri'nin resmî paketleme eylemi: derler, paketler ve
+      #    GitHub Releases'e taslak sürüm olarak yükler
+      - name: Paket üret ve Releases'e yükle
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # __VERSION__ otomatik olarak tauri.conf.json'daki sürümle değişir
+          tagName: v__VERSION__
+          releaseName: "VerdantNote v__VERSION__"
+          releaseBody: |
+            ## İndirme Rehberi
+            - **Windows:** `.msi` veya `-setup.exe` dosyasını indirip çalıştırın.
+            - **Mac (M1 ve sonrası):** `aarch64.dmg` dosyasını indirin.
+            - **Mac (Intel):** `x64.dmg` dosyasını indirin.
+
+            Not: Uygulama imzasız olduğu için ilk açılışta güvenlik uyarısı
+            çıkabilir. Windows'ta "Ek bilgi → Yine de çalıştır",
+            macOS'ta uygulamaya sağ tık → "Aç" deyin.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
