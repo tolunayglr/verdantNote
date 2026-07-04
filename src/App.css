@@ -1,0 +1,11 @@
+/* Tailwind CSS v4: tek satırla tüm stil sistemi yüklenir */
+@import "tailwindcss";
+
+/* Typography eklentisi: editördeki "prose" sınıfı için (başlık, liste stilleri) */
+@plugin "@tailwindcss/typography";
+
+/* TEMA AYARI: Tailwind'in "dark:" ön eki normalde işletim sistemi
+   tercihine bakar. Biz kendi düğmemizle yönetmek istiyoruz, o yüzden
+   kural şu olsun: "dark: stilleri, <html class='koyu'> varken geçerli."
+   (temaDeposu.ts bu sınıfı ekleyip çıkarır) */
+@custom-variant dark (&:where(.koyu, .koyu *));
