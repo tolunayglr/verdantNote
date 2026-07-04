@@ -18,6 +18,13 @@
 
 name: Kurulum Paketleri
 
+# İZİN: İş akışının otomatik anahtarı (GITHUB_TOKEN) varsayılan olarak
+# sadece OKUYABİLİR. Releases bölümüne paket yükleyebilmek için
+# yazma izni vermek gerekiyor — yoksa "Resource not accessible
+# by integration" hatası alınır.
+permissions:
+  contents: write
+
 on:
   # Elle tetikleme (Actions sekmesindeki düğme)
   workflow_dispatch:
@@ -54,7 +61,7 @@ jobs:
       - name: Node.js kur
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       # 3. Rust kur (backend derlemesi için).
       #    macOS'ta iki hedef mimari birden kurulur (Apple Silicon + Intel)
